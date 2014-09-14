@@ -34,6 +34,98 @@ my_bool mjson_to_string(json_t * obj, char * output) {
 }
 
 /**
+ * mjson_set - set the value at a given position (array) or the element at a given key (object)
+ */
+my_bool mjson_set_init(UDF_INIT * initid, UDF_ARGS * args, char * message) {
+	if(args->arg_count != 3) {
+		sprintf(message, "mjson_set - takes exactly 3 arguments - mjson_get(<json>, <key|position>, <value>)");
+		return 1;
+	}
+	return 0;
+}
+
+char * mjson_set(UDF_INIT * initid, UDF_ARGS * args, char * result, unsigned long * length, my_bool * is_null, my_bool * is_error) {
+	// Special case for null
+	if(args->args[0] == NULL) {
+		*is_null = 1;
+		return result;
+	}
+	
+	if(args->arg_type[0] != STRING_RESULT) {
+		fprintf(stderr, "the <json> argument must be a STRING - mjson_get(<json>, <key|position>)\n");
+		*is_error = 1;
+	    return result;
+	}
+
+	char * json = args->args[0];
+	// hack to truncate json input to the right length
+	json[args->lengths[0]] = 0;
+
+	json_t * obj;
+	json_error_t error;
+	obj = json_loads(json, JSON_DISABLE_EOF_CHECK, &error);
+
+	if(!obj) {
+	    fprintf(stderr, "mjson_set - '%s' is not valid JSON - line %d: %s\n", json, error.line, error.text);
+	    *is_error = 1;
+	    return result;
+	}
+
+	my_bool is_object = json_is_object(obj);
+	my_bool is_array = json_is_array(obj);
+
+	if(args->args[1] != NULL) {
+		const int type = args->arg_type[1];
+
+		json_t * value;
+		switch(type) {
+			// must be an object
+			case STRING_RESULT: {
+				char * key = args->args[1];
+				key[args->lengths[1]] = 0;
+				if(!is_object) {
+					fprintf(stderr, "mjson_get - recieved key=%s, but json=%s is an array\n", key, json);
+					*is_error = 1;
+				} else
+					value = json_object_get(obj, key);
+			}
+			break;
+
+			case INT_RESULT: {
+				long long position = *((long long*) args->args[1]);
+				if(!is_array) {
+					fprintf(stderr, "mjson_get - recieved position=%lld, but json=%s is an object\n", position, json);
+					*is_error = 1;
+				} else
+					value = json_array_get(obj, position);
+			}
+			break;
+
+			default:
+				fprintf(stderr, "mjson_get - unsupported <key|position> value");
+				*is_null = 1;
+		}
+
+			
+		/**
+		 * - error occurred
+		 * - position is out of bounds
+		 * - key is not prese
+		 */
+		if(!value) {
+			*is_null = 1;
+		} else {
+			*is_null = mjson_to_string(value, result);
+		}
+	}
+
+	json_decref(obj);
+	
+	*length = (uint) strlen(result);
+	return result;
+}
+
+/**
  * mjson_get - retrieve the value at a given position (array) or the element at a given key (object)
  */
 my_bool mjson_get_init(UDF_INIT * initid, UDF_ARGS * args, char * message) {
