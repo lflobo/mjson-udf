@@ -160,7 +160,7 @@ json_t * mjvalue(UDF_ARGS * args, int index, my_bool primitive_only) {
 	return NULL;
 }
 
-double get_time()
+double mjtime()
 {
     struct timeval t;
     struct timezone tzp;

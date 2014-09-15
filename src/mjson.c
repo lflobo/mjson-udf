@@ -56,6 +56,10 @@ my_bool mjson_get_init(UDF_INIT * initid, UDF_ARGS * args, char * message) {
 }
 
 char * mjson_get(UDF_INIT * initid, UDF_ARGS * args, char * result, unsigned long * length, my_bool * is_null, my_bool * is_error) {
+	double _time;
+	if(benchmark)
+		_time = mjtime();
+
 	// Special case for null
 	if(args->args[0] == NULL) {
 		*is_null = 1;
@@ -128,6 +132,9 @@ char * mjson_get(UDF_INIT * initid, UDF_ARGS * args, char * result, unsigned lon
 
 	free(json);
 	*length = (uint) strlen(result);
+
+	if(benchmark)
+		fprintf(stderr, "BENCHMARK: mjson_get - took %fms\n", (mjtime() - _time)*1000);
 	return result;
 }
 
@@ -143,6 +150,10 @@ my_bool mjson_set_init(UDF_INIT * initid, UDF_ARGS * args, char * message) {
 }
 
 char * mjson_set(UDF_INIT * initid, UDF_ARGS * args, char * result, unsigned long * length, my_bool * is_null, my_bool * is_error) {
+	double _time;
+	if(benchmark)
+		_time = mjtime();
+
 	// Special case for null
 	if(args->args[0] == NULL) {
 		*is_null = 1;
@@ -211,6 +222,10 @@ char * mjson_set(UDF_INIT * initid, UDF_ARGS * args, char * result, unsigned lon
 
 	free(json);
 	*length = (uint) strlen(result);
+
+	if(benchmark)
+		fprintf(stderr, "BENCHMARK: mjson_set - took %fms\n", (mjtime() - _time)*1000);
+
 	return result;
 }
 
@@ -227,6 +242,10 @@ my_bool mjson_size_init(UDF_INIT * initid, UDF_ARGS * args, char * message) {
 }
 
 long long mjson_size(UDF_INIT *initid, UDF_ARGS *args, char *is_null, char *is_error) {
+	double _time;
+	if(benchmark)
+		_time = mjtime();
+
 	long long size = -1;
 	// Special case for null
 	if(args->args[0] == NULL)
@@ -254,6 +273,9 @@ long long mjson_size(UDF_INIT *initid, UDF_ARGS *args, char *is_null, char *is_e
 	if(json_is_object(obj))
 		size = json_object_size(obj);
 
+	if(benchmark)
+		fprintf(stderr, "BENCHMARK: mjson_size - took %fms\n", (mjtime() - _time)*1000);
+
 	return size;
 }
 
@@ -269,6 +291,10 @@ my_bool mjson_array_append_init(UDF_INIT * initid, UDF_ARGS * args, char * messa
 }
 
 char * mjson_array_append(UDF_INIT * initid, UDF_ARGS * args, char * result, unsigned long * length, my_bool * is_null, my_bool * is_error) {
+	double _time;
+	if(benchmark)
+		_time = mjtime();
+
 	if(args->args[0] == NULL) {
 		* is_null = 1;
 		return result;
@@ -307,6 +333,10 @@ char * mjson_array_append(UDF_INIT * initid, UDF_ARGS * args, char * result, uns
 	}
 
 	*length = (uint) strlen(result);
+
+	if(benchmark)
+		fprintf(stderr, "BENCHMARK:  mjson_array_append - took %fms\n", (mjtime() - _time)*1000);
+
 	return result;
 }
 
@@ -322,6 +352,10 @@ my_bool mjson_unset_init(UDF_INIT * initid, UDF_ARGS * args, char * message) {
 }
 
 char * mjson_unset(UDF_INIT * initid, UDF_ARGS * args, char * result, unsigned long * length, my_bool * is_null, my_bool * is_error) {
+	double _time;
+	if(benchmark)
+		_time = mjtime();
+
 	if(args->args[0] == NULL) {
 		* is_null = 1;
 		return result;
@@ -380,5 +414,9 @@ char * mjson_unset(UDF_INIT * initid, UDF_ARGS * args, char * result, unsigned l
 		}
 
 	*length = (uint) strlen(result);
+
+	if(benchmark)
+		fprintf(stderr, "BENCHMARK:  mjson_unset - took %fms\n", (mjtime() - _time)*1000);
+
 	return result;
 }

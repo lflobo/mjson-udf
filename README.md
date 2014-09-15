@@ -39,6 +39,14 @@ Available functions:
 * <tt>mjson_array_append(json, value)</tt> - append the given value to the supplied json array
 * <tt>mjson_size(json)</tt> - get the number of elements in a json array or object
 
+Advanced:
+
+* <tt>mjson_config(parameter)</tt> - get a <tt>mjson</tt> configuration parameter
+* <tt>mjson_config(parameter, value)</tt> - sets a <tt>mjson</tt> parameter
+
+* Available parameters:
+** <tt>benchmark</tt>: when <tt>1</tt> will output benchmarking information to <tt>mysql.err</tt> 
+
 Examples
 ========
 
