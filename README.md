@@ -23,6 +23,11 @@ cmake -DCMAKE_INSTALL_PREFIX:PATH=/usr/lib64/mysql/plugin ..
 make all install
 ```
 
+To create the functions in your server instance, issue:
+```bash
+mysql -uroot < mjson.sql
+```
+
 Usage
 ========
 
