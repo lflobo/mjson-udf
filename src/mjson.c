@@ -5,12 +5,8 @@
 
 #include "mjson_util.h"
 
-#ifndef bzero
-#define bzero(a,b) memset(a,0,b)
-#endif
-
 /**
- * mjson_get - retrieve the value at a given position (array) or the element at a given key (object)
+ * mjson_get - get the value of JSON Object/Array at specified key/position
  */
 my_bool mjson_get_init(UDF_INIT * initid, UDF_ARGS * args, char * message) {
 	if(args->arg_count != 2) {
@@ -270,6 +266,79 @@ char * mjson_array_append(UDF_INIT * initid, UDF_ARGS * args, char * result, uns
 		*is_null = mjstring(arr, result);
 		json_decref(arr);
 	}
+
+	*length = (uint) strlen(result);
+	return result;
+}
+
+/**
+ * mjson_unset - Removes the element at specified key|position from the JSON Object/Array
+ */
+my_bool mjson_unset_init(UDF_INIT * initid, UDF_ARGS * args, char * message) {
+	if(args->arg_count != 2) {
+		sprintf(message, "mjson_array_remove - takes exactly 2 arguments - mjson_array_remove(<json>, <key|position>)");
+		return 1;
+	}
+	return 0;
+}
+
+char * mjson_unset(UDF_INIT * initid, UDF_ARGS * args, char * result, unsigned long * length, my_bool * is_null, my_bool * is_error) {
+	if(args->args[0] == NULL) {
+		* is_null = 1;
+		return result;
+	}
+
+	if(args->arg_type[0] != STRING_RESULT) {
+		fprintf(stderr, "mjson_array_append - the <json> argument must be a STRING - mjson_array_append(<json>, <element>)");
+	    * is_error = 1;
+	    return result;
+	}
+
+	my_bool ok;
+	char * json = mjarg(args, 0);
+	json_t * obj = mjloads(json, &ok);
+
+	if(!ok) {
+		    *is_error = 1;
+		} else {
+			my_bool is_object = json_is_object(obj);
+			my_bool is_array = json_is_array(obj);
+
+			if(args->args[1] != NULL) {
+				const int type = args->arg_type[1];
+				switch(type) {
+					case STRING_RESULT: {
+						char * key = mjarg(args, 1);
+						if(!is_object) {
+							fprintf(stderr, "mjson_array_remove - recieved key=%s, but json=%s is an array\n", key, json);
+							*is_error = 1;
+						} else {
+							*is_error = json_object_del(obj, key);
+						}
+						free(key);
+					}
+					break;
+
+					case INT_RESULT: {
+						long long position = *((long long*) args->args[1]);
+						if(!is_array) {
+							fprintf(stderr, "mjson_array_remove - recieved position=%lld, but json=%s is an object\n", position, json);
+							*is_error = 1;
+						} else {
+							*is_error = json_array_remove(obj, position);
+						}
+					}
+					break;
+
+					default:
+						fprintf(stderr, "mjson_array_remove - unsupported <key|position> value");
+						*is_null = 1;
+				}
+
+				*is_null = mjstring(obj, result);
+			}
+			json_decref(obj);
+		}
 
 	*length = (uint) strlen(result);
 	return result;

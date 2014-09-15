@@ -29,3 +29,6 @@
 *.hex
 
 build
+.project
+.cproject
+.settings
