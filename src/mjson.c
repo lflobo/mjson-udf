@@ -5,6 +5,45 @@
 
 #include "mjson_util.h"
 
+static my_bool benchmark = 0;
+
+/**
+ * mjson_config - configure mjson library
+ */
+my_bool mjson_config_init(UDF_INIT * initid, UDF_ARGS * args, char * message) {
+	if(args->arg_count < 1 || args->arg_count > 2) {
+		sprintf(message,
+			"usage\n"
+			"mjson_config(<parameter>) - retrieve the configuration parameter value\n"
+			"mjson_config(<parameter>, <value>) - set the configuration parameter value\n"
+			"\n"
+			"parameters:\n"
+			"  benchmark - set 1/0 to enable/disable (watch .err mysql log)"
+		);
+		return 1;
+	}
+	return 0;
+}
+
+char * mjson_config(UDF_INIT * initid, UDF_ARGS * args, char * result, unsigned long * length, my_bool * is_null, my_bool * is_error) {
+	// benchmark
+	char * parameter = mjarg(args, 0);
+	if(strcmp(parameter, "benchmark") == 0) {
+		if(args->arg_count == 1) { // get
+			sprintf(result, "%d", benchmark);
+		} else { // set
+			long long value = mjarg_int(args, 1);
+			sprintf(result, "%lld", value);
+			benchmark = value;
+		}
+	} else {
+		sprintf(result, "unknown parameter: %s", parameter);
+	}
+	free(parameter);
+	*length = (uint) strlen(result);
+	return result;
+}
+
 /**
  * mjson_get - get the value of JSON Object/Array at specified key/position
  */
@@ -57,7 +96,7 @@ char * mjson_get(UDF_INIT * initid, UDF_ARGS * args, char * result, unsigned lon
 				break;
 
 				case INT_RESULT: {
-					long long position = *((long long*) args->args[1]);
+					long long position = mjarg_int(args, 1);
 					if(!is_array) {
 						fprintf(stderr, "mjson_get - recieved position=%lld, but json=%s is an object\n", position, json);
 						*is_error = 1;
@@ -145,7 +184,7 @@ char * mjson_set(UDF_INIT * initid, UDF_ARGS * args, char * result, unsigned lon
 				break;
 
 				case INT_RESULT: {
-					long long position = *((long long*) args->args[1]);
+					long long position = mjarg_int(args, 1);
 					char * value = mjarg(args, 2);
 					if(!is_array) {
 						fprintf(stderr, "mjson_set - recieved position=%lld, but json=%s is an object\n", position, json);
@@ -320,7 +359,7 @@ char * mjson_unset(UDF_INIT * initid, UDF_ARGS * args, char * result, unsigned l
 					break;
 
 					case INT_RESULT: {
-						long long position = *((long long*) args->args[1]);
+						long long position = mjarg_int(args, 1);
 						if(!is_array) {
 							fprintf(stderr, "mjson_array_remove - recieved position=%lld, but json=%s is an object\n", position, json);
 							*is_error = 1;

@@ -1,7 +1,9 @@
 #include "mjson_util.h"
-#include <jansson.h>
-#include <mysql/mysql.h>
 #include <string.h>
+#include <sys/time.h>
+#include <sys/resource.h>
+#include <mysql/mysql.h>
+#include <jansson.h>
 
 /*
  * returns 1 if the result is null, 0 otherwise
@@ -113,7 +115,17 @@ char * mjarg(UDF_ARGS * args, int index) {
     return colval ;
 }
 
+long long mjarg_int(UDF_ARGS * args, int index) {
+	return *((long long*) args->args[index]);
+}
 
+double mjarg_real(UDF_ARGS * args, int index) {
+	return *((double*) args->args[index]);
+}
+
+double mjarg_decimal(UDF_ARGS * args, int index) {
+	return atof(args->args[index]);
+}
 
 char * mjstrtrunc(char * string, size_t size) {
     char * substr = malloc( size + 1 ) ;
@@ -140,10 +152,18 @@ json_t * mjvalue(UDF_ARGS * args, int index, my_bool primitive_only) {
 	}
 
 	if(type == INT_RESULT)
-		return json_integer(*((long long*) args->args[index]));
+		return json_integer(mjarg_int(args, index));
 	if(type == REAL_RESULT)
-		return json_real(*((double*) args->args[index]));
+		return json_real(mjarg_real(args, index));
 	if(type == DECIMAL_RESULT)
-		return json_real(atof(args->args[index]));
+		return json_real(mjarg_decimal(args, index));
 	return NULL;
+}
+
+double get_time()
+{
+    struct timeval t;
+    struct timezone tzp;
+    gettimeofday(&t, &tzp);
+    return t.tv_sec + t.tv_usec*1e-6;
 }
