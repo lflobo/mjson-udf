@@ -71,7 +71,8 @@ void mjdebug(const char * fname, UDF_INIT *initid, UDF_ARGS *args) {
 		args->arg_count
 	);
 
-	for(int i=0; i<args->arg_count; i++) {
+	int i;
+	for(i=0; i<args->arg_count; i++) {
 		// args->args[i][args->lengths[i]] = 0;
 		fprintf(stderr,
 			"    {\n"
