@@ -44,8 +44,8 @@ Advanced:
 * <tt>mjson_config(parameter)</tt> - get a <tt>mjson</tt> configuration parameter
 * <tt>mjson_config(parameter, value)</tt> - sets a <tt>mjson</tt> parameter
 
-* Available parameters:
-# <tt>benchmark</tt>: when <tt>1</tt> will output benchmarking information to <tt>mysql.err</tt> 
+Available parameters:
+* <tt>benchmark</tt>: when <tt>1</tt> will output benchmarking information to <tt>mysql.err</tt> 
 
 Examples
 ========
