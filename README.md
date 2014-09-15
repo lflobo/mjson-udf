@@ -3,7 +3,7 @@ Description
 
 This project aims to add some of the (arguable) missing json functions to the MySQL and MariaDB engines, in the form of UDFs.
 
-This project uses the Jansson JSON Library (https://jansson.readthedocs.org/en/2.6/index.html).
+This project uses the [Jansson JSON Library](https://jansson.readthedocs.org/en/2.6/index.html).
 
 Build/Install
 ========
