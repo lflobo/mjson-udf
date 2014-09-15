@@ -1,4 +1,4 @@
-SET(sources mjson.c)
+SET(sources mjson.c mjson_util.c)
 ADD_LIBRARY(mjson SHARED ${sources})
 
 TARGET_LINK_LIBRARIES(mjson jansson)

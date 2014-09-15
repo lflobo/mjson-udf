@@ -3,127 +3,11 @@
 #include <stdio.h>
 #include <jansson.h>
 
+#include "mjson_util.h"
+
 #ifndef bzero
 #define bzero(a,b) memset(a,0,b)
 #endif
-
-/*
- * returns 1 if the result is null, 0 otherwise
- */
-my_bool mjson_to_string(json_t * obj, char * output) {
-	char * as_string;
-	switch(json_typeof(obj)) {
-		case JSON_OBJECT:
-		case JSON_ARRAY:
-			as_string = json_dumps(obj, JSON_COMPACT | JSON_PRESERVE_ORDER);
-			sprintf(output, "%s", as_string);
-			free(as_string);
-		break;
-		case JSON_STRING: sprintf(output, "%s", json_string_value(obj)); break;
-		case JSON_INTEGER: sprintf(output, "%lld", json_integer_value(obj)); break;
-		case JSON_REAL: sprintf(output, "%f", json_real_value(obj)); break;
-		case JSON_TRUE: sprintf(output, "%d", 1); break;
-		case JSON_FALSE: sprintf(output, "%d", 0); break;
-		case JSON_NULL:
-		default:
-			return 1;
-	}
-
-	// is not null
-	return 0;
-}
-
-/**
- * mjson_set - set the value at a given position (array) or the element at a given key (object)
- */
-my_bool mjson_set_init(UDF_INIT * initid, UDF_ARGS * args, char * message) {
-	if(args->arg_count != 3) {
-		sprintf(message, "mjson_set - takes exactly 3 arguments - mjson_get(<json>, <key|position>, <value>)");
-		return 1;
-	}
-	return 0;
-}
-
-char * mjson_set(UDF_INIT * initid, UDF_ARGS * args, char * result, unsigned long * length, my_bool * is_null, my_bool * is_error) {
-	// Special case for null
-	if(args->args[0] == NULL) {
-		*is_null = 1;
-		return result;
-	}
-	
-	if(args->arg_type[0] != STRING_RESULT) {
-		fprintf(stderr, "the <json> argument must be a STRING - mjson_get(<json>, <key|position>)\n");
-		*is_error = 1;
-	    return result;
-	}
-
-	char * json = args->args[0];
-	// hack to truncate json input to the right length
-	json[args->lengths[0]] = 0;
-
-	json_t * obj;
-	json_error_t error;
-	obj = json_loads(json, JSON_DISABLE_EOF_CHECK, &error);
-
-	if(!obj) {
-	    fprintf(stderr, "mjson_set - '%s' is not valid JSON - line %d: %s\n", json, error.line, error.text);
-	    *is_error = 1;
-	    return result;
-	}
-
-	my_bool is_object = json_is_object(obj);
-	my_bool is_array = json_is_array(obj);
-
-	if(args->args[1] != NULL) {
-		const int type = args->arg_type[1];
-
-		json_t * value;
-		switch(type) {
-			// must be an object
-			case STRING_RESULT: {
-				char * key = args->args[1];
-				key[args->lengths[1]] = 0;
-				if(!is_object) {
-					fprintf(stderr, "mjson_get - recieved key=%s, but json=%s is an array\n", key, json);
-					*is_error = 1;
-				} else
-					value = json_object_get(obj, key);
-			}
-			break;
-
-			case INT_RESULT: {
-				long long position = *((long long*) args->args[1]);
-				if(!is_array) {
-					fprintf(stderr, "mjson_get - recieved position=%lld, but json=%s is an object\n", position, json);
-					*is_error = 1;
-				} else
-					value = json_array_get(obj, position);
-			}
-			break;
-
-			default:
-				fprintf(stderr, "mjson_get - unsupported <key|position> value");
-				*is_null = 1;
-		}
-
-			
-		/**
-		 * - error occurred
-		 * - position is out of bounds
-		 * - key is not prese
-		 */
-		if(!value) {
-			*is_null = 1;
-		} else {
-			*is_null = mjson_to_string(value, result);
-		}
-	}
-
-	json_decref(obj);
-	
-	*length = (uint) strlen(result);
-	return result;
-}
 
 /**
  * mjson_get - retrieve the value at a given position (array) or the element at a given key (object)
@@ -149,71 +33,148 @@ char * mjson_get(UDF_INIT * initid, UDF_ARGS * args, char * result, unsigned lon
 	    return result;
 	}
 
-	char * json = args->args[0];
-	// hack to truncate json input to the right length
-	json[args->lengths[0]] = 0;
+	my_bool ok;
+	char * json = mjarg(args, 0);
+	json_t * obj = mjloads(json, &ok);
 
-	json_t * obj;
-	json_error_t error;
-	obj = json_loads(json, JSON_DISABLE_EOF_CHECK, &error);
-
-
-	if(!obj) {
-	    fprintf(stderr, "mjson_get - '%s' is not valid JSON - line %d: %s\n", json, error.line, error.text);
+	if(!ok) {
 	    *is_error = 1;
+	} else {
+		my_bool is_object = json_is_object(obj);
+		my_bool is_array = json_is_array(obj);
+
+		if(args->args[1] != NULL) {
+			const int type = args->arg_type[1];
+
+			json_t * value;
+			switch(type) {
+				// must be an object
+				case STRING_RESULT: {
+					char * key = mjarg(args, 1);
+					if(!is_object) {
+						fprintf(stderr, "mjson_get - recieved key=%s, but json=%s is an array\n", key, json);
+						*is_error = 1;
+					} else
+						value = json_object_get(obj, key);
+					free(key);
+				}
+				break;
+
+				case INT_RESULT: {
+					long long position = *((long long*) args->args[1]);
+					if(!is_array) {
+						fprintf(stderr, "mjson_get - recieved position=%lld, but json=%s is an object\n", position, json);
+						*is_error = 1;
+					} else
+						value = json_array_get(obj, position);
+				}
+				break;
+
+				default:
+					fprintf(stderr, "mjson_get - unsupported <key|position> value");
+					*is_null = 1;
+			}
+
+				
+			/**
+			 * - error occurred
+			 * - position is out of bounds
+			 * - key is not prese
+			 */
+			if(!value) {
+				*is_null = 1;
+			} else {
+				*is_null = mjstring(value, result);
+			}
+		}
+
+		json_decref(obj);
+	}
+
+	free(json);
+	*length = (uint) strlen(result);
+	return result;
+}
+
+/**
+ * mjson_set - set the value at a given position (array) or the element at a given key (object)
+ */
+my_bool mjson_set_init(UDF_INIT * initid, UDF_ARGS * args, char * message) {
+	if(args->arg_count != 3) {
+		sprintf(message, "mjson_set - takes exactly 3 arguments - mjson_get(<json>, <key|position>, <value>)");
+		return 1;
+	}
+	return 0;
+}
+
+char * mjson_set(UDF_INIT * initid, UDF_ARGS * args, char * result, unsigned long * length, my_bool * is_null, my_bool * is_error) {
+	// Special case for null
+	if(args->args[0] == NULL) {
+		*is_null = 1;
+		return result;
+	}
+	
+	if(args->arg_type[0] != STRING_RESULT) {
+		fprintf(stderr, "the <json> argument must be a STRING - mjson_set(<json>, <key|position>, <value>)\n");
+		*is_error = 1;
 	    return result;
 	}
 
-	my_bool is_object = json_is_object(obj);
-	my_bool is_array = json_is_array(obj);
+	my_bool ok;
+	char * json = mjarg(args, 0);
+	json_t * obj = mjloads(json, &ok);
 
-	if(args->args[1] != NULL) {
-		const int type = args->arg_type[1];
+	if(!ok) {
+	    *is_error = 1;
+	} else {
+		my_bool is_object = json_is_object(obj);
+		my_bool is_array = json_is_array(obj);
 
-		json_t * value;
-		switch(type) {
-			// must be an object
-			case STRING_RESULT: {
-				char * key = args->args[1];
-				key[args->lengths[1]] = 0;
-				if(!is_object) {
-					fprintf(stderr, "mjson_get - recieved key=%s, but json=%s is an array\n", key, json);
-					*is_error = 1;
-				} else
-					value = json_object_get(obj, key);
+		if(args->args[1] != NULL) {
+			const int type = args->arg_type[1];
+			switch(type) {
+				// must be an object
+				case STRING_RESULT: {
+					char * key = mjarg(args, 1);
+					if(!is_object) {
+						fprintf(stderr, "mjson_set - recieved key=%s, but json=%s is an array\n", key, json);
+						*is_error = 1;
+					} else {
+						json_t * json_value = mjvalue(args, 2, 0);
+						json_object_set(obj, key, json_value);
+						json_decref(json_value);
+					}
+					free(key);
+				}
+				break;
+
+				case INT_RESULT: {
+					long long position = *((long long*) args->args[1]);
+					char * value = mjarg(args, 2);
+					if(!is_array) {
+						fprintf(stderr, "mjson_set - recieved position=%lld, but json=%s is an object\n", position, json);
+						*is_error = 1;
+					} else {
+						json_t * json_value = mjvalue(args, 2, 0);
+						json_array_set(obj, position, json_value);
+						json_decref(json_value);
+					}
+					free(value);
+				}
+				break;
+
+				default:
+					fprintf(stderr, "mjson_set - unsupported <key|position> value");
+					*is_null = 1;
 			}
-			break;
 
-			case INT_RESULT: {
-				long long position = *((long long*) args->args[1]);
-				if(!is_array) {
-					fprintf(stderr, "mjson_get - recieved position=%lld, but json=%s is an object\n", position, json);
-					*is_error = 1;
-				} else
-					value = json_array_get(obj, position);
-			}
-			break;
-
-			default:
-				fprintf(stderr, "mjson_get - unsupported <key|position> value");
-				*is_null = 1;
+				
+			*is_null = mjstring(obj, result);
 		}
-
-			
-		/**
-		 * - error occurred
-		 * - position is out of bounds
-		 * - key is not prese
-		 */
-		if(!value) {
-			*is_null = 1;
-		} else {
-			*is_null = mjson_to_string(value, result);
-		}
+		json_decref(obj);
 	}
 
-	json_decref(obj);
-	
+	free(json);
 	*length = (uint) strlen(result);
 	return result;
 }
@@ -241,20 +202,16 @@ long long mjson_size(UDF_INIT *initid, UDF_ARGS *args, char *is_null, char *is_e
 	    return size;
 	}
 
-	char * json = args->args[0];
-	// hack to truncate json input to the right length
-	json[args->lengths[0]] = 0;
 
-	json_t * obj;
-	json_error_t error;
-	obj = json_loads(json, JSON_DISABLE_EOF_CHECK, &error);
+	my_bool ok;
+	char * json = mjarg(args, 0);
+	json_t * obj = mjloads(json, &ok);
+	free(json);
 
-	if(!obj) {
-	    fprintf(stderr, "mjson_size - '%s' is not valid JSON - line %d: %s\n", json, error.line, error.text);
+	if(!ok) {
 	    *is_error = 1;
 	    return size;
 	}
-
 
 	if(json_is_array(obj))
 		size = json_array_size(obj);
@@ -288,67 +245,32 @@ char * mjson_array_append(UDF_INIT * initid, UDF_ARGS * args, char * result, uns
 	    return result;
 	}
 
-	char * json = args->args[0];
-	// hack to truncate json input to the right length
-	json[args->lengths[0]] = 0;
+	my_bool ok;
+	char * json = mjarg(args, 0);
+	json_t * arr = mjloads(json, &ok);
 
-	json_t * arr;
-	json_error_t error;
-	arr = json_loads(json, JSON_DISABLE_EOF_CHECK, &error);
-
-	if(!arr) {
-	    fprintf(stderr, "mjson_array_append - '%s' is not valid JSON - line %d: %s\n", json, error.line, error.text);
+	if(!ok) {
 	    * is_error = 1;
-	    return result;
-	}
-
-	if(!json_is_array(arr)) {
-		fprintf(stderr, "mjson_array_append - '%s' is not a JSON array", json);
-	    * is_error = 1;
-	    return result;
-	}
-
-	if(args->args[1] != NULL) {
-		const int type = args->arg_type[1];
-
-		json_t * value;
-		switch(type) {
-			case STRING_RESULT:
-				value = json_pack("s", args->args[1]);
-				break;
-
-			case INT_RESULT: {
-					long long i = *((long long*) args->args[1]);
-					value = json_integer(i);
-				}
-				break;
-
-			case REAL_RESULT: {
-					double f = *((double*) args->args[1]);
-					value = json_real(f);
-				}
-				break;
-
-			case DECIMAL_RESULT: {
-					value = json_real(atof(args->args[1]));
-				}
-				break;
-		}
-
-			
-		if(!value) {
-			fprintf(stderr, "could not convert %s to a json value\n", args->args[1]);
+	} else {
+		if(!json_is_array(arr)) {
+			fprintf(stderr, "mjson_array_append - '%s' is not a JSON array", json);
+		    * is_error = 1;
 		} else {
-			if(json_array_append(arr, value) == -1)
-				fprintf(stderr, "mjson_array_append - error adding element to array (json_array_append)\n");
-			json_decref(value);
+			if(args->args[1] != NULL) {
+				json_t * value = mjvalue(args, 1, 0);
+				if(!value) {
+					fprintf(stderr, "could not convert %s to a json value\n", args->args[1]);
+				} else {
+					if(json_array_append(arr, value) == -1)
+						fprintf(stderr, "mjson_array_append - error adding element to array (json_array_append)\n");
+					json_decref(value);
+				}
+			}
 		}
+		*is_null = mjstring(arr, result);
+		json_decref(arr);
 	}
-
-	*is_null = mjson_to_string(arr, result);
-	json_decref(arr);
 
 	*length = (uint) strlen(result);
-	*is_null = 0;
 	return result;
 }
