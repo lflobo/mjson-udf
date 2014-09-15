@@ -13,7 +13,7 @@ The library is built using cmake build system.
 If you are planing on installing it, you need to know before hand the <tt>plugin</tt> directory of you MySQL/MariaDB installation.
 For instance, if you use Centos, your mysql <tt>plugin_dir</tt> is something like - <tt>/usr/lib64/mysql/plugin/</tt>.
 
-You need to instal the <tt>jansson</tt> library for the udf to work. Using cmake you define the install prefix and build.
+You need to install the <tt>jansson</tt> library for the udf to work. Using cmake you define the install prefix and build.
 In the root of the project you can issue:
 
 ```bash
@@ -51,7 +51,7 @@ CREATE TABLE test_table(
 );
 ```
 
-And lets insert some data in them:
+And lets insert some data in it:
 ```sql
 INSERT INTO test_table(json_1, json_2)
   VALUES
