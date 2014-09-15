@@ -33,8 +33,8 @@ Usage
 
 Available functions:
 
-* <tt>mjson_get(json, index|position)</tt> - get the value of the given key (object) or position (array) of the supplied json
-* <tt>mjson_set(json, index|position, value)</tt> - sets the value of the given key (object) or position (array) on the supplied json to the supplied value
+* <tt>mjson_get(json, key|position)</tt> - get the value of the given key (object) or position (array) of the supplied json
+* <tt>mjson_set(json, key|position, value)</tt> - sets the value of the given key (object) or position (array) on the supplied json to the supplied value
 * <tt>mjson_array_append(json, value)</tt> - append the given value to the supplied json array
 * <tt>mjson_size(json)</tt> - get the number of elements in a json array or object
 
