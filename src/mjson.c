@@ -382,12 +382,20 @@ char * mjson_unset(UDF_INIT * initid, UDF_ARGS * args, char * result, unsigned l
 				switch(type) {
 					case STRING_RESULT: {
 						char * key = mjarg(args, 1);
-						if(!is_object) {
-							fprintf(stderr, "mjson_array_remove - recieved key=%s, but json=%s is an array\n", key, json);
-							*is_error = 1;
-						} else {
+
+						// if object remove the key
+						if(is_object)
 							*is_error = json_object_del(obj, key);
+
+						// if array remove the element matching the key
+						if(is_array) {
+							size_t index;
+							json_t * value;
+							json_array_foreach(obj, index, value) {
+
+							}
 						}
+
 						free(key);
 					}
 					break;
